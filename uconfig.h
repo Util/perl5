@@ -3143,10 +3143,16 @@
 
 /* HAS_NL_LANGINFO:
  *	This symbol, if defined, indicates that the nl_langinfo routine is
- *	available to return local data.  You will also need <langinfo.h>
+ *	available to return locale data.  You will also need <langinfo.h>
+ *	and therefore I_LANGINFO.
+ */
+/* HAS_NL_LANGINFO_L:
+ *	This symbol, if defined, indicates that the nl_langinfo_l routine is
+ *	available to return locale data.  You will also need <langinfo.h>
  *	and therefore I_LANGINFO.
  */
 /*#define HAS_NL_LANGINFO		/ **/
+/*#define HAS_NL_LANGINFO_L		/ **/
 
 /* HAS_OFF64_T:
  *	This symbol will be defined if the C compiler supports off64_t.
@@ -4956,17 +4962,6 @@
  */
 /*#define HAS_MBRTOWC	/ **/
 
-/* HAS_NL_LANGINFO_L:
- *	This symbol, when defined, indicates presence of the nl_langinfo_l()
- *	function
- */
-/* HAS_THREAD_SAFE_NL_LANGINFO_L:
- *	This symbol, when defined, indicates presence of the nl_langinfo_l()
- *	function, and that it is thread-safe.
- */
-/*#define HAS_NL_LANGINFO_L	/ **/
-/*#define HAS_THREAD_SAFE_NL_LANGINFO_L	/ **/
-
 /* OLD_PTHREAD_CREATE_JOINABLE:
  *	This symbol, if defined, indicates how to create pthread
  *	in joinable (aka undetached) state.  NOTE: not defined
@@ -5382,6 +5377,6 @@
 #endif
 
 /* Generated from:
- * e17a83ff6ae98071d846d4a001f6ce1a669df08c357fe153c2370adc4910135e config_h.SH
+ * e82a5070935ce9ffb8c075dcb62f785ddc6c087b31813eb09841c51fb895b31a config_h.SH
  * dac2aceefc94292b9ec73e8a4615ae98e521658172c452c5467759219568c800 uconfig.sh
  * ex: set ro ft=c: */

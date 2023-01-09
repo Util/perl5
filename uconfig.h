@@ -3616,6 +3616,31 @@
  */
 /*#define DEFAULT_INC_EXCLUDES_DOT	/ **/
 
+/* LC_ALL_USES_NAME_VALUE_PAIRS:
+ *	This symbol, if defined, indicates to the C program that the string
+ *	returned by setlocale(LC_ALL, NULL) uses 'name=value;' pairs to
+ *	indicate what each category's locale is when they aren't all set to the
+ *	same locale.  For example, "LC_NUMERIC=C;LC_CTYPE=de_DE;..."
+ *	When not defined, the system uses positional notation.
+ */
+/* LC_ALL_SEPARATOR:
+ *	This symbol, if defined, gives the string returned by
+ *	setlocale(LC_ALL, NULL) to separate categories that are in different
+ *	locales on systems that use a positional notation as opposed to
+ *	'name=value' pairs.  An example on some platforms could be the '/' in
+ *	"C/de_DE/C/en_UK/C/C"
+ */
+/* LC_ALL_CATEGORY_POSITIONS_INIT:
+ *	This symbol, when defined, gives the C initializer for an array whose
+ *	element [0] is the first category in the string returned by
+ *	setlocale(LC_ALL, NULL) when not all categories are the same, on
+ *	systems that use a positional notation.  After element [0] is
+ *	LC_ALL_SEPARATOR, then the category given by element [1] ....
+ */
+#define LC_ALL_USES_NAME_VALUE_PAIRS  	/**/
+/*#define  LC_ALL_CATEGORY_POSITIONS_INIT  	/ **/
+/*#define  LC_ALL_SEPARATOR 	/ **/
+
 /* USE_DYNAMIC_LOADING:
  *	This symbol, if defined, indicates that dynamic loading of
  *	some sort is available.
@@ -5377,6 +5402,6 @@
 #endif
 
 /* Generated from:
- * e82a5070935ce9ffb8c075dcb62f785ddc6c087b31813eb09841c51fb895b31a config_h.SH
- * dac2aceefc94292b9ec73e8a4615ae98e521658172c452c5467759219568c800 uconfig.sh
+ * 9e7eb84f99abcc2a031865d5480c637a1358c9ea624122c341248459e97ee31d config_h.SH
+ * f58eccb17236ed4e0f59a63792166eaf88d9db18c6bc8ce9c7e5524964d95678 uconfig.sh
  * ex: set ro ft=c: */

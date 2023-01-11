@@ -6962,7 +6962,7 @@ Perl_my_strerror(pTHX_ const int errnum, utf8ness_t * utf8ness)
     }
     else {
 
-        SETLOCALE_LOCK;
+        LOCALE_LOCK;
 
         const char * orig_locale = toggle_locale_i(WHICH_LC_INDEX, "C");
 
@@ -6970,7 +6970,7 @@ Perl_my_strerror(pTHX_ const int errnum, utf8ness_t * utf8ness)
 
         restore_toggled_locale_i(WHICH_LC_INDEX, orig_locale);
 
-        SETLOCALE_UNLOCK;
+        LOCALE_UNLOCK;
 
         *utf8ness = UTF8NESS_IMMATERIAL;
 
@@ -7000,7 +7000,7 @@ Perl_my_strerror(pTHX_ const int errnum, utf8ness_t * utf8ness)
                                   : "C";
     /* XXX Can fail on z/OS */
 
-    SETLOCALE_LOCK;
+    LOCALE_LOCK;
 
     const char* orig_CTYPE_locale    = toggle_locale_c(LC_CTYPE, desired_locale);
     const char* orig_MESSAGES_locale = toggle_locale_c(LC_MESSAGES,
@@ -7010,7 +7010,7 @@ Perl_my_strerror(pTHX_ const int errnum, utf8ness_t * utf8ness)
     restore_toggled_locale_c(LC_MESSAGES, orig_MESSAGES_locale);
     restore_toggled_locale_c(LC_CTYPE, orig_CTYPE_locale);
 
-    SETLOCALE_UNLOCK;
+    LOCALE_UNLOCK;
 
     *utf8ness = get_locale_string_utf8ness_i(errstr, LOCALE_UTF8NESS_UNKNOWN,
                                              NULL, LC_MESSAGES_INDEX_);

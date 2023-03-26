@@ -1331,7 +1331,16 @@ S_querylocale_2008_i(pTHX_ const unsigned int index)
 
     DEBUG_Lv(PerlIO_printf(Perl_debug_log, "querylocale_2008_i(%s) on %p\n",
                                            category_names[index], cur_obj));
-    if (UNLIKELY(cur_obj == LC_GLOBAL_LOCALE)) {
+
+    /* If the current locale object is the C object, then the answer is "C",
+     * regardless of the category.  Handling this reasonably likely case
+     * specially shortcuts extra effort, and hides some bugs from us in OS's
+     * that alias other locales to C, but do so incompletely.  See
+     * https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=269375 */
+    if (cur_obj == PL_C_locale_obj) {
+        retval = mortalized_pv_copy("C");
+    }
+    else if (UNLIKELY(cur_obj == LC_GLOBAL_LOCALE)) {
 
         /* Even on platforms that have querylocale(), it is unclear if they
          * work in the global locale, and we have the means to get the correct

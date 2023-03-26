@@ -1393,12 +1393,15 @@ S_querylocale_2008_i(pTHX_ const unsigned int index)
                               nl_langinfo_l(_NL_LOCALE_NAME(categories[index]),
                                             cur_obj));
 #    else
+            /* Sadly, querylocale() on some systems isn't
+               thread-safe, so have to lock.  If someone experimented on a
+               given platform to determine that it is safe there, there could
+               be something like '-Accflags=-DTHREAD_SAFE_QUERYLOCALE' set in a
+               hints file to circumvent this. */
+            gwLOCALE_LOCK;
             retval = mortalized_pv_copy(querylocale(category_masks[index],
                                                     cur_obj));
-            QUERYLOCALE_UNLOCK;
-
-#        undef QUERYLOCALE_LOCK
-#        undef QUERYLOCALE_UNLOCK
+            gwLOCALE_UNLOCK;
 #    endif
 
         }

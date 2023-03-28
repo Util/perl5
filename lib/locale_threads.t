@@ -1328,7 +1328,7 @@ SKIP: {
     $switches = "switches => [ -DU ]" if $debug > 2;
 
     # See if multiple threads can simultaneously change the locale, and give
-    # the expected radix results.  On systems without a comma radix locale,
+    # the expected XXX radix results.  On systems without a comma radix locale,
     # run this anyway skipping the use of that, to verify that we dont
     # segfault
     fresh_perl_is("
@@ -1576,6 +1576,8 @@ SKIP: {
         my \$result = 1;    # So far, everything is ok
 
         wait_until_time();
+        alarm(10 * 60);     # Long time, just to prevent hanging
+
         do {
 
             # If everything is ok so far, do another chunk of iterations on

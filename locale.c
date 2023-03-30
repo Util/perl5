@@ -203,14 +203,30 @@
 static int debug_initialization = 0;
 #  define DEBUG_INITIALIZATION_set(v) (debug_initialization = v)
 #  define DEBUG_LOCALE_INITIALIZATION_  debug_initialization
+#  define DEBUG_ERRNO                                                       \
+        dSAVE_ERRNO; dTHX;                                                  \
+        int extended = get_extended_os_errno();                             \
+        const char * errno_string;                                          \
+        if (GET_ERRNO == 0) { /* Skip output if both errno types are 0 */   \
+            if (LIKELY(extended == 0)) errno_string = "";                   \
+            else errno_string = Perl_form(aTHX_ "; $^E=%d", extended);      \
+        }                                                                   \
+        else if (LIKELY(extended == GET_ERRNO))                             \
+            errno_string = Perl_form(aTHX_ "; $!=%d", GET_ERRNO);           \
+        else errno_string = Perl_form(aTHX_ "; $!=%d, $^E=%d",              \
+                                                    GET_ERRNO, extended);
 #  if defined(USE_ITHREADS) && ! defined(NO_LOCALE_THREADS)
-#    define DEBUG_PRE_STMTS                                                     \
-     dSAVE_ERRNO; dTHX; PerlIO_printf(Perl_debug_log,"\n%s: %" LINE_Tf ": 0x%p: ",\
-                                      __FILE__, (line_t)__LINE__, aTHX);
+#    define DEBUG_PRE_STMTS                                                 \
+        DEBUG_ERRNO;                                                        \
+        PerlIO_printf(Perl_debug_log, "\n%s: %" LINE_Tf ": 0x%p%s: ",       \
+                                      __FILE__, (line_t)__LINE__, aTHX_     \
+                                      errno_string);
 #  else
-#    define DEBUG_PRE_STMTS                                                     \
-     dSAVE_ERRNO; dTHX; PerlIO_printf(Perl_debug_log, "\n%s: %" LINE_Tf ": ",   \
-                                      __FILE__, (line_t)__LINE__);
+#    define DEBUG_PRE_STMTS                                                 \
+        DEBUG_ERRNO;                                                        \
+        PerlIO_printf(Perl_debug_log, "\n%s: %" LINE_Tf "%s: ",             \
+                                      __FILE__, (line_t)__LINE__,           \
+                                      errno_string);
 #  endif
 #  define DEBUG_POST_STMTS  RESTORE_ERRNO;
 #else

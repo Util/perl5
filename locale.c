@@ -2577,9 +2577,9 @@ S_find_locale_from_environment(pTHX_ const unsigned int index)
 
         /* If no corresponding environment variable, see if LANG exists.  If
          * so, use it. */
-        const char * default_name = PerlEnv_getenv("LANG");
-        if (default_name && strNE(default_name, "")) {
-            return default_name;
+        const char * LANG = PerlEnv_getenv("LANG");
+        if (LANG && strNE(LANG, "")) {
+            return LANG;
         }
 
         /* If no LANG, use "C" on POSIX 2008, the system default on Windows */
@@ -2595,11 +2595,11 @@ S_find_locale_from_environment(pTHX_ const unsigned int index)
      * default, but overridden for individual categories that have
      * corresponding environment variables.  If no LANG exists, the default is
      * "C" on POSIX 2008, or the system default for the category on Windows. */
-    const char * default_name = PerlEnv_getenv("LANG");
+    const char * LANG = PerlEnv_getenv("LANG");
 
     /* Convert "" to NULL to save conditionals in the loop below */
-    if (default_name != NULL && strEQ(default_name, "")) {
-        default_name = NULL;
+    if (LANG != NULL && strEQ(LANG, "")) {
+        LANG = NULL;
     }
 
     /* Loop through all the individual categories, setting each to any
@@ -2612,8 +2612,8 @@ S_find_locale_from_environment(pTHX_ const unsigned int index)
         if (env_override && strNE(env_override, "")) {
             locale_names[i] = env_override;
         }
-        else if (default_name) {
-            locale_names[i] = default_name;
+        else if (LANG) {
+            locale_names[i] = LANG;
         }
         else {
 

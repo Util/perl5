@@ -2326,7 +2326,6 @@ S_update_PL_curlocales_i(pTHX_
      * our mapping of libc category number to our internal equivalents. */
 
     PERL_ARGS_ASSERT_UPDATE_PL_CURLOCALES_I;
-    PERL_UNUSED_ARG(caller_line);
     assert(index <= LC_ALL_INDEX_);
 
     if (index != LC_ALL_INDEX_) {
@@ -2340,12 +2339,31 @@ S_update_PL_curlocales_i(pTHX_
         PL_curlocales[LC_ALL_INDEX_] = NULL;
     }
     else {  /* LC_ALL */
-
-        /* For LC_ALL, we change all individual categories to correspond,
-         * including the LC_ALL element */
         for (unsigned int i = 0; i <= LC_ALL_INDEX_; i++) {
             Safefree(PL_curlocales[i]);
-            PL_curlocales[i] = savepv(new_locale);
+            PL_curlocales[i] = NULL;
+        }
+
+        switch (parse_LC_ALL_string(new_locale,
+                                    (const char **) &PL_curlocales,
+                                    true,   /* Always fill array */
+                                    true,   /* Panic if fails, as to get here
+                                               it earlier had to have succeeded
+                                               */
+                                   caller_line))
+
+        {
+          case invalid:
+          case no_array:
+          case only_element_0:
+            locale_panic_via_("Unexpected return from parse_LC_ALL_string",
+                              __FILE__, caller_line);
+
+          case full_array:
+            /* parse_LC_ALL_string() has already filled PL_curlocales properly,
+             * except for the LC_ALL element, which should be set to
+             * 'new_locale'. */
+            PL_curlocales[LC_ALL_INDEX_] = savepv(new_locale);
         }
     }
 }

@@ -2153,16 +2153,7 @@ S_update_PL_curlocales_i(pTHX_
     PERL_UNUSED_ARG(caller_line);
     assert(index <= LC_ALL_INDEX_);
 
-    if (index == LC_ALL_INDEX_) {
-
-        /* For LC_ALL, we change all individual categories to correspond,
-         * including the LC_ALL element */
-        for (unsigned int i = 0; i <= LC_ALL_INDEX_; i++) {
-            Safefree(PL_curlocales[i]);
-            PL_curlocales[i] = savepv(new_locale);
-        }
-    }
-    else {  /* Not LC_ALL */
+    if (index != LC_ALL_INDEX_) {
 
         /* Update the single category's record */
         Safefree(PL_curlocales[index]);
@@ -2171,6 +2162,15 @@ S_update_PL_curlocales_i(pTHX_
         /* Invalidate LC_ALL */
         Safefree(PL_curlocales[LC_ALL_INDEX_]);
         PL_curlocales[LC_ALL_INDEX_] = NULL;
+    }
+    else {  /* LC_ALL */
+
+        /* For LC_ALL, we change all individual categories to correspond,
+         * including the LC_ALL element */
+        for (unsigned int i = 0; i <= LC_ALL_INDEX_; i++) {
+            Safefree(PL_curlocales[i]);
+            PL_curlocales[i] = savepv(new_locale);
+        }
     }
 }
 

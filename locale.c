@@ -1716,10 +1716,10 @@ S_querylocale_2008_i(pTHX_ const unsigned int index)
 #  ifdef USE_PL_CURLOCALES
 
         /* PL_curlocales[] is kept up-to-date for all categories except LC_ALL,
-         * which may be invalidated, and if so, should now be calculated. */
+         * which may be invalidated, and if so, should now be calculated.  (The
+         * function updates PL_curlocales[LC_ALL_INDEX_] ) */
         if (index == LC_ALL_INDEX_ && PL_curlocales[LC_ALL_INDEX_] == NULL) {
-            PL_curlocales[LC_ALL_INDEX_] =
-                savepv(calculate_LC_ALL_string((const char **) &PL_curlocales));
+            calculate_LC_ALL_string((const char **) &PL_curlocales);
         }
 
         retval = mortalized_pv_copy(PL_curlocales[index]);
@@ -2171,7 +2171,11 @@ S_calculate_LC_ALL_string(pTHX_ const char ** category_locales_list)
 {
     PERL_ARGS_ASSERT_CALCULATE_LC_ALL_STRING;
 
-    /* For POSIX 2008, we have to figure out LC_ALL ourselves when needed.
+    /* NOTE: This function may have the side effect of updating
+     * PL_curlocales[LC_ALL_INDEX_] with its result (on Configurations that
+     * have that array).
+     *
+     * For POSIX 2008, we have to figure out LC_ALL ourselves when needed.
      * querylocale(), on systems that have it, doesn't tend to work for LC_ALL.
      * So we have to construct the answer ourselves based on the passed in
      * data, which is either a locale_t object, for systems with querylocale(),
@@ -2281,6 +2285,21 @@ S_calculate_LC_ALL_string(pTHX_ const char ** category_locales_list)
         aggregate_locale = this_start;
         aggregate_locale[entry_len] = '\0';
     }
+
+#  ifdef USE_PL_CURLOCALES
+
+        /* PL_curlocales[LC_ALL_INDEX_] is updated as a side-effect of this
+         * function. */
+        Safefree(PL_curlocales[LC_ALL_INDEX_]);
+        PL_curlocales[LC_ALL_INDEX_] = savepv(aggregate_locale);
+
+#  endif
+#  ifdef USE_PL_CUR_LC_ALL
+
+        Safefree(PL_cur_LC_ALL);
+        PL_cur_LC_ALL = savepv(aggregate_locale);
+
+#  endif
 
     DEBUG_Lv(PerlIO_printf(Perl_debug_log,
                            "calculate_LC_ALL_string returning '%s'\n",

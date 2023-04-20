@@ -2326,8 +2326,26 @@ S_querylocale_2008_i(pTHX_ const unsigned int index, const line_t caller_line)
                               nl_langinfo_l(_NL_LOCALE_NAME(categories[index]),
                                             cur_obj));
 #    else
+#      ifdef NO_THREAD_SAFE_QUERYLOCALE
+#        undef HAS_THREAD_SAFE_QUERYLOCALE
+#      else
+#        define HAS_THREAD_SAFE_QUERYLOCALE
+#      endif
+#      ifdef HAS_THREAD_SAFE_QUERYLOCALE
+#        define QUERYLOCALE_LOCK
+#        define QUERYLOCALE_UNLOCK
+#      else
+#        define QUERYLOCALE_LOCK    gwLOCALE_LOCK
+#        define QUERYLOCALE_UNLOCK  gwLOCALE_UNLOCK
+#      endif
+
+            QUERYLOCALE_LOCK;
             retval = mortalized_pv_copy(querylocale(category_masks[index],
                                                     cur_obj));
+            QUERYLOCALE_UNLOCK;
+
+#        undef QUERYLOCALE_LOCK
+#        undef QUERYLOCALE_UNLOCK
 #    endif
 
         }

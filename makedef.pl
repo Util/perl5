@@ -489,6 +489,13 @@ unless ($define{USE_LOCALE})
     );
 }
 
+unless ($define{USE_PERL_SWITCH_LOCALE_CONTEXT})
+{
+    ++$skip{$_} foreach qw(
+        Perl_switch_locale_context
+    );
+}
+
 unless ($define{EMULATE_THREAD_SAFE_LOCALES})
 {
     ++$skip{$_} foreach qw(
@@ -500,12 +507,6 @@ unless ($define{EMULATE_THREAD_SAFE_LOCALES})
     );
 }
 
-unless ($define{USE_PERL_SWITCH_LOCALE_CONTEXT})
-{
-    ++$skip{$_} foreach qw(
-        Perl_switch_locale_context
-    );
-}
 
 unless ($define{'MULTIPLICITY'}) {
     ++$skip{$_} foreach qw(

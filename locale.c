@@ -4987,7 +4987,7 @@ S_get_locale_string_utf8ness_i(pTHX_ const char * string,
                            _byte_dump_string((U8 *) string, strlen(string), 0),
                            known_utf8));
     if (string == NULL) {
-        return UTF8NESS_NO;
+        return UTF8NESS_IMMATERIAL;
     }
 
     if (IN_BYTES) { /* respect 'use bytes' */

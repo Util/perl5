@@ -10073,6 +10073,14 @@ Perl_switch_locale_context(pTHX)
 
 #  elif defined(WIN32)
 
+    if (! PL_perl_controls_locale) {
+        return;
+    }
+
+    if (_configthreadlocale(_ENABLE_PER_THREAD_LOCALE) == -1) {
+        locale_panic_("_configthreadlocale returned an error");
+    }
+
     if (! bool_setlocale_c(LC_ALL, PL_cur_LC_ALL)) {
         locale_panic_(Perl_form(aTHX_ "Can't setlocale(%s)", PL_cur_LC_ALL));
     }
@@ -10114,6 +10122,8 @@ Perl_thread_locale_init(pTHX)
     if (_configthreadlocale(_ENABLE_PER_THREAD_LOCALE) == -1) {
         locale_panic_("_configthreadlocale returned an error");
     }
+
+    PL_perl_controls_locale = true;
 
 #    endif
 

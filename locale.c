@@ -6586,7 +6586,7 @@ Perl_init_i18nl10n(pTHX_ int printwarn)
     if (UNLIKELY(trial != 0)) {
         if (locwarn) {
             const char * description = "a fallback locale";
-            const char * name;
+            const char * name = NULL;;
 
             /* If we didn't find a good fallback, list all we tried */
             if (! ok && already_checked > 0) {

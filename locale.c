@@ -4442,7 +4442,7 @@ Perl_setlocale(const int category, const char * locale)
     /* Now that have changed locales, we have to update our records to
      * correspond.  Only certain categories have extra work to update. */
     if (update_functions[cat_index]) {
-        update_functions[cat_index](aTHX_ querylocale_i(cat_index), false);
+        update_functions[cat_index](aTHX_ locale, false);
     }
 
     /* We or libc may have overridden the input.  Return the actual value.

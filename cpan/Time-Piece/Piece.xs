@@ -54,6 +54,8 @@ extern "C" {
 #  define PERL_VERSION_GE(j,n,p)  0
 #endif
 
+/* XXX bunch of other locks need, tzset putenv, getenv; haven't looked */
+
 #ifdef WIN32
 
 /*
@@ -126,6 +128,7 @@ extern "C" {
 #undef malloc
 #undef free
 
+/* Should call the one in Posix:: */
 static void
 fix_win32_tzenv(void)
 {
@@ -831,6 +834,7 @@ label:
 				return 0;
 
 			len = (c == 'Y') ? 4 : 2;
+                        /* XXX note this is a bug is isdigit, subtracting '0' because could be another set of 10. */
 			for (i = 0; len && *buf != 0 && isDIGIT_LC((unsigned char)*buf); buf++) {
 				i *= 10;
 				i += *buf - '0';

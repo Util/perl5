@@ -1360,14 +1360,18 @@ S_parse_LC_ALL_string(pTHX_ const char * string,
  * Any necessary mutex locking needs to be done at a higher level.
  *
  * On most platforms this layer is empty, expanding to just the layer
- * below.   To enable it, call Configure with:
+ * below.   To enable it, call Configure with either or both:
  * -Accflags=-DHAS_LF_IN_SETLOCALE_RETURN
  *                  to indicate that extraneous \n characters can be returned
  *                  by setlocale()
+ * -Accflags=-DHAS_BROKEN_SETLOCALE_QUERY_LC_ALL
+ *                  to indicate that setlocale(LC_ALL, NULL) cannot be relied
+ *                  on
  */
 
 #if ! defined(USE_LOCALE)                                                   \
- || ! defined(HAS_LF_IN_SETLOCALE_RETURN)
+ || ! (   defined(HAS_LF_IN_SETLOCALE_RETURN)                               \
+       || defined(HAS_BROKEN_SETLOCALE_QUERY_LC_ALL))
 #  define stdized_setlocale(cat, locale)  posix_setlocale(cat, locale)
 #  define stdize_locale(cat, locale)  (locale)
 #else
@@ -1404,6 +1408,22 @@ S_stdize_locale(pTHX_ const int category,
     }
 
     char * retval = (char *) input_locale;
+
+#  if defined(LC_ALL) && defined(HAS_BROKEN_SETLOCALE_QUERY_LC_ALL)
+
+        /* If setlocale(LC_ALL, NULL) is broken, compute what the system
+         * actually thinks it should be from its individual components */
+    if (category == LC_ALL) {
+        retval = (char *) calculate_LC_ALL_string(
+                                     NULL,  /* query each individ locale */
+                                     EXTERNAL_FORMAT_FOR_SET,
+                                     false, /* Return a mortalized temporary */
+                                     caller_line);
+    }
+
+#  endif
+#  ifdef HAS_NL_IN_SETLOCALE_RETURN
+
     char * first_bad = NULL;
 
 #    ifndef LC_ALL
@@ -1501,6 +1521,7 @@ S_stdize_locale(pTHX_ const int category,
 #    endif
 #    undef INPUT_LOCALE
 #    undef MARK_CHANGED
+#  endif    /* HAS_NL_IN_SETLOCALE_RETURN */
 
     return (const char *) retval;
 }

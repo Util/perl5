@@ -7144,7 +7144,14 @@ S_my_langinfo_i(pTHX_
 char *
 Perl_my_strftime(pTHX_ const char *fmt, int sec, int min, int hour, int mday, int mon, int year, int wday, int yday, int isdst)
 {
-#ifdef HAS_STRFTIME
+    PERL_ARGS_ASSERT_MY_STRFTIME;
+
+    struct tm * mytm = ints_to_tm(sec, min, hour, mday, mon, year,
+                                  wday, yday, isdst);
+    char * ret = strftime_tm(fmt, mytm);
+    Safefree(mytm);
+    return ret;
+}
 
 /*
 =for apidoc_section $time
@@ -7165,7 +7172,53 @@ the program, giving results based on that locale.
 
 =cut
  */
-    PERL_ARGS_ASSERT_MY_STRFTIME;
+
+STATIC struct tm *
+S_ints_to_tm(pTHX_ int sec, int min, int hour, int mday, int mon, int year,
+                   int wday, int yday, int isdst)
+{
+    /* Set mytm to now */
+    struct tm * mytm;
+    Newxz(mytm, 1, struct tm);
+    init_tm(mytm);	/* XXX workaround - see Perl_init_tm() */
+
+    /* Override with the passed-in values */
+    mytm->tm_sec = sec;
+    mytm->tm_min = min;
+    mytm->tm_hour = hour;
+    mytm->tm_mday = mday;
+    mytm->tm_mon = mon;
+    mytm->tm_year = year;
+    mytm->tm_wday = wday;
+    mytm->tm_yday = yday;
+    mytm->tm_isdst = isdst;
+    mini_mktime(mytm);
+
+    /* use libc to get the values for tm_gmtoff and tm_zone on platforms that
+     * have them [perl #18238] */
+#if  defined(HAS_MKTIME)                                      \
+ && (defined(HAS_TM_TM_GMTOFF) || defined(HAS_TM_TM_ZONE))
+    struct tm mytm2;
+    StructCopy(mytm, &mytm2, struct tm);
+    mytm2 = *mytm;
+    MKTIME_LOCK;
+    mktime(&mytm2);
+    MKTIME_UNLOCK;
+#  ifdef HAS_TM_TM_GMTOFF
+    mytm->tm_gmtoff = mytm2.tm_gmtoff;
+#  endif
+#  ifdef HAS_TM_TM_ZONE
+    mytm->tm_zone = mytm2.tm_zone;
+#  endif
+#endif
+
+    return mytm;
+}
+
+STATIC char *
+S_strftime_tm(pTHX_ const char *fmt, const struct tm *mytm)
+{
+    PERL_ARGS_ASSERT_STRFTIME_TM;
 
     /* An empty format yields an empty result */
     const int fmtlen = strlen(fmt);
@@ -7175,38 +7228,9 @@ the program, giving results based on that locale.
         return ret;
     }
 
-    /* Set mytm to now */
-    struct tm mytm;
-    init_tm(&mytm);	/* XXX workaround - see Perl_init_tm() */
-
-    /* Override with the passed-in values */
-    mytm.tm_sec = sec;
-    mytm.tm_min = min;
-    mytm.tm_hour = hour;
-    mytm.tm_mday = mday;
-    mytm.tm_mon = mon;
-    mytm.tm_year = year;
-    mytm.tm_wday = wday;
-    mytm.tm_yday = yday;
-    mytm.tm_isdst = isdst;
-    mini_mktime(&mytm);
-
-    /* use libc to get the values for tm_gmtoff and tm_zone on platforms that
-     * have them [perl #18238] */
-#  if  defined(HAS_MKTIME)                                      \
-   && (defined(HAS_TM_TM_GMTOFF) || defined(HAS_TM_TM_ZONE))
-    struct tm mytm2;
-    mytm2 = mytm;
-    MKTIME_LOCK;
-    mktime(&mytm2);
-    MKTIME_UNLOCK;
-#    ifdef HAS_TM_TM_GMTOFF
-    mytm.tm_gmtoff = mytm2.tm_gmtoff;
-#    endif
-#    ifdef HAS_TM_TM_ZONE
-    mytm.tm_zone = mytm2.tm_zone;
-#    endif
-#  endif
+#ifndef HAS_STRFTIME
+    Perl_croak(aTHX_ "panic: no strftime");
+#else
 #  if defined(USE_LOCALE_CTYPE) && defined(USE_LOCALE_TIME)
 
     const char * orig_CTYPE_LOCALE = toggle_locale_c(LC_CTYPE,
@@ -7229,7 +7253,7 @@ the program, giving results based on that locale.
         GCC_DIAG_IGNORE_STMT(-Wformat-nonliteral);
 
         STRFTIME_LOCK;
-        int len = strftime(buf, bufsize, fmt, &mytm);
+        int len = strftime(buf, bufsize, fmt, mytm);
         STRFTIME_UNLOCK;
 
         GCC_DIAG_RESTORE_STMT;
@@ -7294,8 +7318,6 @@ the program, giving results based on that locale.
 #  endif
     return buf;
 
-#else
-    Perl_croak(aTHX_ "panic: no strftime");
 #endif
 
 }

@@ -2457,7 +2457,7 @@ S_bool_setlocale_2008_i(pTHX_
             freelocale(entry_obj);
         }
 
-        update_PL_curlocales_i(index, "C", caller_line);
+        update_PL_curlocales_i(index, new_locale, caller_line);
     }
     else {  /* Here is the general case, not to LC_ALL => C */
 
@@ -4013,21 +4013,61 @@ Perl__warn_problematic_locale()
 }
 
 STATIC void
-S_new_LC_ALL(pTHX_ const char *unused, bool force)
+
+#  ifdef LC_ALL
+
+S_new_LC_ALL(pTHX_ const char *lc_all, bool force)
+
+#  else
+
+S_new_LC_ALL(pTHX_ const char ** individ_locales, bool force)
+
+#  endif
+
 {
     PERL_ARGS_ASSERT_NEW_LC_ALL;
-    PERL_UNUSED_ARG(unused);
 
     /* new_LC_ALL() updates all the things we care about.  Note that this is
      * called just after a change, so uses the actual underlying locale just
      * set, and not the nominal one (should they differ, as they may in
      * LC_NUMERIC). */
 
+#  ifdef LC_ALL
+
+    const char * individ_locales[LC_ALL_INDEX_] = { NULL };
+
+    switch (parse_LC_ALL_string(lc_all,
+                                (const char **) &individ_locales,
+                                override_if_ignored,   /* Override any ignored
+                                                          categories */
+                                true,   /* Always fill array */
+                                true,   /* Panic if fails, as to get here it
+                                           earlier had to have succeeded */
+                                __LINE__))
+    {
+        case invalid:
+        case no_array:
+        case only_element_0:
+        locale_panic_("Unexpected return from parse_LC_ALL_string");
+
+        case full_array:
+        break;
+    }
+
+#  endif
+
     for (unsigned int i = 0; i < LC_ALL_INDEX_; i++) {
         if (update_functions[i]) {
-            const char * this_locale = querylocale_i(i);
+            const char * this_locale = individ_locales[i];
             update_functions[i](aTHX_ this_locale, force);
         }
+
+#  ifdef LC_ALL
+
+        Safefree(individ_locales[i]);
+
+#  endif
+
     }
 }
 
@@ -6687,7 +6727,16 @@ S_give_perl_locale_control(pTHX_
 #  endif
 
     /* Finally, update our remaining records.  'true' => force recalculation */
-    new_LC_ALL(NULL, true);
+
+#  if defined(LC_ALL)
+
+    new_LC_ALL(lc_all_string, true);
+
+#    else
+
+    new_LC_ALL(locales, true);
+
+#    endif
 }
 
 STATIC void
@@ -7168,8 +7217,20 @@ Perl_init_i18nl10n(pTHX_ int printwarn)
     }
 
 #  endif
+#  ifdef LC_ALL
 
-    new_LC_ALL(NULL, true /* Don't shortcut */);
+    new_LC_ALL("C", true /* Don't shortcut */);
+
+#  elif defined(USE_PL_CURLOCALES)
+
+    new_LC_ALL(PL_curlocales, true /* Don't shortcut */);
+
+#  else
+
+    const char C_locales[LC_ALL_INDEX_] = { "C" };
+    new_LC_ALL(C_locales, true /* Don't shortcut */);
+
+#  endif
 
 /*===========================================================================*/
 

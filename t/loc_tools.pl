@@ -37,11 +37,13 @@ my $save_D = $^D;
 #my $d = $^D;
 #$d |= (0x04000000|0x00100000) if $debug;
 
+my $has_excluded_category = $Config{ccflags} =~ /\bD?NO_LOCALE_/;
 sub category_excluded($) {
     my $cat_name = shift =~ s/^LC_//r;
 
     # Recognize Configure option to exclude a category
-    return $Config{ccflags} =~ /\bD?NO_LOCALE_$cat_name\b/;
+    return $has_excluded_category
+        && $Config{ccflags} =~ /\bD?NO_LOCALE_$cat_name\b/;
 }
 
 # LC_ALL can be -1 on some platforms.  And, in fact the implementors could
@@ -154,6 +156,8 @@ sub _trylocale ($$$$) { # For use only by other functions in this file!
     my $categories = shift;
     my $list = shift;
     my $allow_incompatible = shift;
+    print STDERR "#", __FILE__, ": ", __LINE__, ": Entering _trylocale $locale\n" if $debug;
+    print STDERR "#", __FILE__, ": ", __LINE__, ": Current state=", setlocale(&LC_ALL), "\n" if $debug;
 
     my $normalized_locale = lc ($locale =~ s/\W//gr);
     return if ! $locale || grep { $normalized_locale eq lc ($_ =~ s/\W//gr) } @$list;
@@ -195,31 +199,36 @@ sub _trylocale ($$$$) { # For use only by other functions in this file!
     };
 
     my $first_time = 1;
+    my $result;
     foreach my $category ($master_category, $categories->@*) {
         next if ! defined $category || (! $first_time && $category == $master_category);
         $first_time = 0;
 
+        print STDERR "#", __FILE__, ": ", __LINE__, ": Calling setlocale($category) to get save_locale\n" if $debug;
         my $save_locale = setlocale($category);
         if (! $save_locale) {
             _my_fail("Verify could save previous locale");
             return;
         }
+        print STDERR "#", __FILE__, ": ", __LINE__, ": save_locale='$save_locale'\n" if $debug;
 
         # Incompatible locales aren't warned about unless using locales.
         use locale;
         #local $^D = $d;
 
-        my $result = setlocale($category, $locale);
-        print STDERR "#", __FILE__, ": ", __LINE__, ": undef\n"  if $debug && ! defined $result;
-        return unless defined $result;
+        print STDERR "#", __FILE__, ": ", __LINE__, ": Calling setlocale($category, $locale)\n" if $debug;
+        my $cur_result = setlocale($category, $locale);
+        print STDERR "#", __FILE__, ": ", __LINE__, ": undef\n"  if $debug && ! defined $cur_result;
+        return unless defined $cur_result;
 
         #$^D = $save_D;
         no locale;
 
-        print STDERR "#", __FILE__, ": ", __LINE__, ": $result\n" if $debug;
+        print STDERR "#", __FILE__, ": ", __LINE__, ": setlocale($category, $locale) yields '$cur_result'\n" if $debug;
 
         # We definitely don't want the locale set to something that is
         # unsupported
+        print STDERR "#", __FILE__, ": ", __LINE__, ": Calling setlocale($category, $save_locale) to restore\n" if $debug;
         if (! setlocale($category, $save_locale)) {
             my $error_text = "\$!=$!";
             $error_text .= "; \$^E=$^E" if $^E != $!;
@@ -236,26 +245,40 @@ sub _trylocale ($$$$) { # For use only by other functions in this file!
         # Commas in locale names are bad in Windows, and there is a bug in
         # some versions where setlocale() turns a legal input locale name into
         # an illegal return value, which it can't later parse.
-        return if $result =~ /,/;
+        return if $cur_result =~ /,/;
+
+        if (! defined $result) {
+            $result = $cur_result;
+        }
+        elsif (! $has_excluded_category && $result ne $cur_result) {
+
+            # Some platforms will translate POSIX into C
+            if (! (   ($result eq "C" && $cur_result eq "POSIX")
+                   || ($result eq "POSIX" && $cur_result eq "C")))
+            {
+                print STDERR "#", __FILE__, ": ", __LINE__, ": '$result' ne '$cur_result\n";
+                return;
+            }
+        }
 # Was from env_win repo
 #210,220d209
 # <         $result =~ s/-//g;
 # <         my $dashless_locale = $locale =~ s/-//gr;
 # <         #use if $^O eq 'MSWin32', "re", qw(Debug ALL);
 # <         if (    $result !~ / ^ \Q$dashless_locale\E /xi
-# < 
+# <
 # <                   # C and POSIX are interchangeable
 # <             && ! (CORE::fc($locale) eq 'posix' && CORE::fc($result) eq 'c'))
 # <         {
 # <             _my_diag("setlocale('$locale') returned '$result'\n");
 # <         }
-# < 
+# <
 
         return unless $plays_well || $allow_incompatible;
     }
 
     print STDERR '#', __FILE__, ": ", __LINE__, ": Adding $locale to list\n" if $debug;
-    push @$list, $locale;
+    push @$list, $result;
 }
 
 sub _decode_encodings { # For use only by other functions in this file!
@@ -264,6 +287,7 @@ sub _decode_encodings { # For use only by other functions in this file!
     foreach (split(/ /, shift)) {
 	if (/^(\d+)$/) {
 	    push @enc, "ISO8859-$1";
+	    push @enc, "ISO-8859-$1";
 	    push @enc, "iso8859$1";	# HP
 	    if ($1 eq '1') {
 		 push @enc, "roman8";	# HP
@@ -451,9 +475,9 @@ sub find_locales ($;$) {
                       ? $input_categories->@*
                       : $input_categories;
     #use Data::Dumper;
-    #print STDERR __FILE__, ": ", __LINE__, ": ", "finding\n", Dumper \@categories;
+    #print STDERR "#", __FILE__, ": ", __LINE__, ": ", "finding\n", Dumper \@categories;
     return unless locales_enabled(\@categories);
-    print STDERR __FILE__, ": ", __LINE__, ": ", "enabled, (allow incompat=$allow_incompatible)\n" if $debug;
+    print STDERR "#", __FILE__, ": ", __LINE__, ": ", "enabled, (allow incompat=$allow_incompatible)\n" if $debug;
 
     # Note, the subroutine call above converts the $categories into a form
     # suitable for _trylocale().
@@ -480,7 +504,7 @@ sub find_locales ($;$) {
     return sort @Locale if defined $Config{d_setlocale_accepts_any_locale_name};
 
     foreach (1..16) {
-        #print STDERR __FILE__, ": ", __LINE__, ": ", "foreach\n";
+        #print STDERR "#", __FILE__, ": ", __LINE__, ": ", "foreach\n";
         _trylocale("ISO8859-$_", \@categories, \@Locale, $allow_incompatible);
         _trylocale("iso8859$_", \@categories, \@Locale, $allow_incompatible);
         _trylocale("iso8859-$_", \@categories, \@Locale, $allow_incompatible);
@@ -509,12 +533,12 @@ sub find_locales ($;$) {
             # locales will cause all IO hadles to default to (assume) utf8
             next unless utf8::valid($_);
             chomp;
-            print STDERR __FILE__, ": ", __LINE__, ": ", "trying $_\n" if $debug;
+            print STDERR "#", __FILE__, ": ", __LINE__, ": ", "trying $_\n" if $debug;
             _trylocale($_, \@categories, \@Locale, $allow_incompatible);
-            print STDERR __FILE__, ": ", __LINE__, ": ", "Finished trying $_\n" if $debug;
+            print STDERR "#", __FILE__, ": ", __LINE__, ": ", "Finished trying $_\n" if $debug;
         }
         close(LOCALES);
-            print STDERR __FILE__, ": ", __LINE__, ": ", "done \n" if $debug;
+            print STDERR "#", __FILE__, ": ", __LINE__, ": ", "done \n" if $debug;
     } elsif ($^O eq 'VMS'
              && defined($ENV{'SYS$I18N_LOCALE'})
              && -d 'SYS$I18N_LOCALE')
@@ -601,7 +625,7 @@ sub find_locales ($;$) {
 
     @Locale = sort @Locale;
 
-    print STDERR "# ", __FILE__, ": ", __LINE__, ": ", "returning \n" if $debug;
+    print STDERR "#", __FILE__, ": ", __LINE__, ": ", "returning \n" if $debug;
     return @Locale;
 }
 
@@ -614,28 +638,28 @@ sub is_locale_utf8 ($) { # Return a boolean as to if core Perl thinks the input
     return 0 unless locales_enabled('LC_CTYPE');
 
     my $locale = shift;
-    print STDERR "# ", __FILE__, ": ", __LINE__, ": ", "is_locale_utf8: $locale\n" if $debug;
+    print STDERR "#", __FILE__, ": ", __LINE__, ": ", "is_locale_utf8: $locale\n" if $debug;
 
     no warnings 'locale'; # We may be trying out a weird locale
     use locale;
 
-    print STDERR "# ", __FILE__, ": ", __LINE__, ": ", "is_locale_utf8: $locale\n" if $debug;
+    print STDERR "#", __FILE__, ": ", __LINE__, ": ", "is_locale_utf8: $locale\n" if $debug;
     my $save_locale = setlocale(&POSIX::LC_CTYPE());
-    print STDERR "# ", __FILE__, ": ", __LINE__, ": ", "is_locale_utf8: $locale, saved=$save_locale\n" if $debug;
+    print STDERR "#", __FILE__, ": ", __LINE__, ": ", "is_locale_utf8: $locale, saved=$save_locale\n" if $debug;
     if (! $save_locale) {
         _my_fail("Verify could save previous locale");
         return 0;
     }
 
     #local $^D = $d;
-    print STDERR "# ", __FILE__, ": ", __LINE__, ": ", "is_locale_utf8: $locale\n" if $debug;
+    print STDERR "#", __FILE__, ": ", __LINE__, ": ", "is_locale_utf8: $locale\n" if $debug;
 
     if (! setlocale(&POSIX::LC_CTYPE(), $locale)) {
         _my_fail("Verify could setlocale to $locale");
         return 0;
     }
     #$^D = $save_D;
-    print STDERR "# ", __FILE__, ": ", __LINE__, ": ", "is_locale_utf8: $locale\n" if $debug;
+    print STDERR "#", __FILE__, ": ", __LINE__, ": ", "is_locale_utf8: $locale\n" if $debug;
 
     my $ret = 0;
 
@@ -644,7 +668,7 @@ sub is_locale_utf8 ($) { # Return a boolean as to if core Perl thinks the input
     # most platforms with UTF-8 in its name, so if there is a bug in the op
     # giving a false negative, we should get a failure for those locales as we
     # go through testing all the locales on the platform.
-    print STDERR "# ", __FILE__, ": ", __LINE__, ": ", "is_locale_utf8: $locale\n" if $debug;
+    print STDERR "#", __FILE__, ": ", __LINE__, ": ", "is_locale_utf8: $locale\n" if $debug;
     if (CORE::fc(chr utf8::unicode_to_native(0xdf)) ne "ss") {
         if ($locale =~ /UTF-?8/i) {
             _my_fail("Verify $locale with UTF-8 in name is a UTF-8 locale");
@@ -653,7 +677,7 @@ sub is_locale_utf8 ($) { # Return a boolean as to if core Perl thinks the input
     else {
         $ret = 1;
     }
-    print STDERR "# ", __FILE__, ": ", __LINE__, ": ", "is_locale_utf8: $locale\n" if $debug;
+    print STDERR "#", __FILE__, ": ", __LINE__, ": ", "is_locale_utf8: $locale\n" if $debug;
 
     die "Couldn't restore locale '$save_locale'"
                             unless setlocale(&POSIX::LC_CTYPE(), $save_locale);
@@ -693,10 +717,10 @@ sub find_utf8_ctype_locales (;$) {
     my $locales_ref = shift;
     if (! defined $locales_ref) {
 
-        print STDERR "# ", __FILE__, ": ", __LINE__, ": ", "find_utf8_ctype_locales:\n" if $debug;
+        print STDERR "#", __FILE__, ": ", __LINE__, ": ", "find_utf8_ctype_locales:\n" if $debug;
         my @locales = find_locales(&POSIX::LC_CTYPE());
         $locales_ref = \@locales;
-        print STDERR "# ", __FILE__, ": ", __LINE__, ": ", "find_utf8_ctype_locales:\n" if $debug;
+        print STDERR "#", __FILE__, ": ", __LINE__, ": ", "find_utf8_ctype_locales:\n" if $debug;
     }
 
     my ($utf8_ref, undef) = classify_locales_wrt_utf8ness($locales_ref);
@@ -713,7 +737,7 @@ sub find_utf8_ctype_locale (;$) { # Return the name of a locale that core Perl
                                   # platform
     my $try_locales_ref = shift;
 
-    print STDERR "# ", __FILE__, ": ", __LINE__, ": ", "find_utf8_ctype_locale:\n" if $debug;
+    print STDERR "#", __FILE__, ": ", __LINE__, ": ", "find_utf8_ctype_locale:\n" if $debug;
     my @utf8_locales = find_utf8_ctype_locales($try_locales_ref);
     my @turkic_locales = find_utf8_turkic_locales($try_locales_ref);
 
@@ -726,7 +750,7 @@ sub find_utf8_ctype_locale (;$) { # Return the name of a locale that core Perl
         return $locale unless exists $seen_turkic{$locale};
     }
 
-    print STDERR "# ", __FILE__, ": ", __LINE__, ": ", "find_utf8_ctype_locale:\n" if $debug;
+    print STDERR "#", __FILE__, ": ", __LINE__, ": ", "find_utf8_ctype_locale:\n" if $debug;
     return;
 }
 
@@ -740,9 +764,9 @@ sub find_utf8_turkic_locales (;$) {
 
     return unless locales_enabled('LC_CTYPE');
 
-    print STDERR "# ", __FILE__, ": ", __LINE__, ": ", "find_utf8_turkic_locales:\n" if $debug;
+    print STDERR "#", __FILE__, ": ", __LINE__, ": ", "find_utf8_turkic_locales:\n" if $debug;
     my $save_locale = setlocale(&POSIX::LC_CTYPE());
-    print STDERR "# ", __FILE__, ": ", __LINE__, ": ", "find_utf8_turkic_locales, saved=$save_locale\n" if $debug;
+    print STDERR "#", __FILE__, ": ", __LINE__, ": ", "find_utf8_turkic_locales, saved=$save_locale\n" if $debug;
     foreach my $locale (find_utf8_ctype_locales(shift)) {
         use locale;
         #local $^D = $d;
@@ -753,7 +777,7 @@ sub find_utf8_turkic_locales (;$) {
 
     die "Couldn't restore locale '$save_locale'"
                             unless setlocale(&POSIX::LC_CTYPE(), $save_locale);
-    print STDERR "# ", __FILE__, ": ", __LINE__, ": ", "find_utf8_turkic_locales: save=$save_locale\n" if $debug;
+    print STDERR "#", __FILE__, ": ", __LINE__, ": ", "find_utf8_turkic_locales: save=$save_locale\n" if $debug;
 
     return @return;
 }
